@@ -1,0 +1,1461 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>F1 Quantum Strategy Simulator - Live Track Integration</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+            color: #fff;
+            overflow-x: hidden;
+        }
+
+        .container {
+            max-width: 1800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        header {
+            text-align: center;
+            padding: 20px;
+            background: rgba(139, 92, 246, 0.2);
+            border-radius: 15px;
+            margin-bottom: 20px;
+            border: 2px solid #8b5cf6;
+        }
+
+        h1 {
+            font-size: 2.2em;
+            margin-bottom: 10px;
+            color: #a78bfa;
+        }
+
+        .controls {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin-bottom: 20px;
+            padding: 15px;
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 10px;
+        }
+
+        button {
+            padding: 12px 20px;
+            border: none;
+            border-radius: 8px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-size: 14px;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #8b5cf6, #7c3aed);
+            color: white;
+        }
+
+        .btn-success {
+            background: linear-gradient(135deg, #22c55e, #16a34a);
+            color: white;
+        }
+
+        .btn-warning {
+            background: linear-gradient(135deg, #f97316, #ea580c);
+            color: white;
+        }
+
+        .btn-danger {
+            background: linear-gradient(135deg, #ef4444, #dc2626);
+            color: white;
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(139, 92, 246, 0.4);
+        }
+
+        .main-grid {
+            display: grid;
+            grid-template-columns: 1fr 400px;
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+
+        .track-container {
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 15px;
+            padding: 20px;
+            border: 2px solid rgba(139, 92, 246, 0.3);
+        }
+
+        #trackCanvas {
+            width: 100%;
+            border-radius: 10px;
+            background: #1a1a2e;
+            cursor: crosshair;
+        }
+
+        .info-panel {
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 15px;
+            padding: 20px;
+            border: 2px solid rgba(139, 92, 246, 0.3);
+            max-height: 800px;
+            overflow-y: auto;
+        }
+
+        .info-section {
+            background: rgba(139, 92, 246, 0.1);
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 15px;
+            border: 1px solid rgba(139, 92, 246, 0.3);
+        }
+
+        .info-section h3 {
+            color: #a78bfa;
+            margin-bottom: 10px;
+            font-size: 1.1em;
+        }
+
+        .telemetry-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
+            margin-top: 10px;
+        }
+
+        .telemetry-item {
+            background: rgba(0, 0, 0, 0.3);
+            padding: 10px;
+            border-radius: 8px;
+        }
+
+        .telemetry-label {
+            font-size: 0.85em;
+            opacity: 0.7;
+            margin-bottom: 5px;
+        }
+
+        .telemetry-value {
+            font-size: 1.3em;
+            font-weight: bold;
+            color: #22c55e;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 20px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+            overflow: hidden;
+            margin: 5px 0;
+        }
+
+        .progress-fill {
+            height: 100%;
+            transition: width 0.3s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.8em;
+            font-weight: bold;
+        }
+
+        .fill-green { background: linear-gradient(90deg, #22c55e, #16a34a); }
+        .fill-yellow { background: linear-gradient(90deg, #eab308, #ca8a04); }
+        .fill-red { background: linear-gradient(90deg, #ef4444, #dc2626); }
+
+        .event-log {
+            background: rgba(0, 0, 0, 0.5);
+            border-radius: 10px;
+            padding: 15px;
+            max-height: 200px;
+            overflow-y: auto;
+            font-size: 0.9em;
+            line-height: 1.6;
+        }
+
+        .event-log p {
+            margin: 5px 0;
+            padding: 5px;
+            border-left: 3px solid #8b5cf6;
+            padding-left: 10px;
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.9);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal-content {
+            background: linear-gradient(135deg, #1e293b, #334155);
+            padding: 30px;
+            border-radius: 15px;
+            border: 2px solid #8b5cf6;
+            max-width: 500px;
+            width: 90%;
+        }
+
+        .modal-content h2 {
+            color: #a78bfa;
+            margin-bottom: 20px;
+        }
+
+        .form-group {
+            margin: 15px 0;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-size: 0.9em;
+            opacity: 0.9;
+        }
+
+        .form-group input, .form-group select {
+            width: 100%;
+            padding: 10px;
+            background: rgba(0, 0, 0, 0.3);
+            border: 2px solid #475569;
+            border-radius: 8px;
+            color: white;
+            font-size: 14px;
+        }
+
+        .prediction-box {
+            background: rgba(251, 146, 60, 0.2);
+            border: 2px solid #fb923c;
+            border-radius: 10px;
+            padding: 15px;
+            margin: 10px 0;
+        }
+
+        .prediction-box h4 {
+            color: #fb923c;
+            margin-bottom: 10px;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+        }
+
+        .urgent {
+            animation: pulse 1s infinite;
+        }
+
+        input[type="file"] {
+            padding: 10px;
+            background: rgba(139, 92, 246, 0.2);
+            border: 2px dashed #8b5cf6;
+            border-radius: 8px;
+            cursor: pointer;
+            width: 100%;
+        }
+
+        input[type="file"]::-webkit-file-upload-button {
+            background: linear-gradient(135deg, #8b5cf6, #7c3aed);
+            color: white;
+            border: none;
+            padding: 8px 15px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+
+        .car-info {
+            background: rgba(0, 0, 0, 0.4);
+            padding: 10px;
+            border-radius: 8px;
+            margin: 8px 0;
+            border-left: 4px solid;
+        }
+
+        .car-info.our-car {
+            border-left-color: #ef4444;
+        }
+
+        .car-info.ai-car {
+            border-left-color: #3b82f6;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🏎️ F1 Quantum Strategy Simulator</h1>
+            <p>Real-Time AI Prediction Visualization with Python Backend Integration</p>
+        </header>
+
+        <div class="controls">
+            <button class="btn-primary" onclick="showTrackUploadModal()">📁 Upload Track</button>
+            <button class="btn-success" onclick="startRace()" id="startBtn">▶️ Start Race</button>
+            <button class="btn-warning" onclick="pauseRace()" id="pauseBtn">⏸️ Pause</button>
+            <button class="btn-danger" onclick="resetRace()">🔄 Reset</button>
+            <button class="btn-primary" onclick="analyzeStrategy()">🧠 Analyze Strategy</button>
+            <button class="btn-primary" onclick="showConfigModal()">⚙️ Settings</button>
+        </div>
+
+        <div class="main-grid">
+            <div class="track-container">
+                <canvas id="trackCanvas" width="1000" height="700"></canvas>
+            </div>
+
+            <div class="info-panel">
+                <div class="info-section">
+                    <h3>📊 Race Status</h3>
+                    <div id="opencvStatus" style="padding: 8px; background: rgba(251, 146, 60, 0.2); border-radius: 5px; margin-bottom: 10px; font-size: 0.85em;">
+                        ⳠBackend: Checking...
+                    </div>
+                    <div class="telemetry-grid">
+                        <div class="telemetry-item">
+                            <div class="telemetry-label">Current Lap</div>
+                            <div class="telemetry-value" id="currentLap">1/50</div>
+                        </div>
+                        <div class="telemetry-item">
+                            <div class="telemetry-label">Position</div>
+                            <div class="telemetry-value" id="position">P5</div>
+                        </div>
+                        <div class="telemetry-item">
+                            <div class="telemetry-label">Lap Time</div>
+                            <div class="telemetry-value" id="lapTime">1:28.234</div>
+                        </div>
+                        <div class="telemetry-item">
+                            <div class="telemetry-label">Total Time</div>
+                            <div class="telemetry-value" id="totalTime">0:00.000</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="info-section">
+                    <h3>🛞 Telemetry</h3>
+                    <div>
+                        <div class="telemetry-label">Tyre Wear</div>
+                        <div class="progress-bar">
+                            <div class="progress-fill fill-green" id="tyreWearBar" style="width: 35%">35%</div>
+                        </div>
+                    </div>
+                    <div>
+                        <div class="telemetry-label">Fuel Load</div>
+                        <div class="progress-bar">
+                            <div class="progress-fill fill-green" id="fuelBar" style="width: 85%">85%</div>
+                        </div>
+                    </div>
+                    <div class="telemetry-grid" style="margin-top: 10px;">
+                        <div class="telemetry-item">
+                            <div class="telemetry-label">FL Temp</div>
+                            <div class="telemetry-value" id="tempFL">95°C</div>
+                        </div>
+                        <div class="telemetry-item">
+                            <div class="telemetry-label">FR Temp</div>
+                            <div class="telemetry-value" id="tempFR">96°C</div>
+                        </div>
+                        <div class="telemetry-item">
+                            <div class="telemetry-label">RL Temp</div>
+                            <div class="telemetry-value" id="tempRL">94°C</div>
+                        </div>
+                        <div class="telemetry-item">
+                            <div class="telemetry-label">RR Temp</div>
+                            <div class="telemetry-value" id="tempRR">95°C</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="info-section" id="aiRecommendation">
+                    <h3>🤖 AI Recommendation</h3>
+                    <p style="opacity: 0.7;">Click "Analyze Strategy" to get AI recommendations</p>
+                </div>
+
+                <div class="info-section" id="predictionBox" style="display: none;">
+                    <h3>🔮 Prediction</h3>
+                    <div id="predictionContent"></div>
+                </div>
+
+                <div class="info-section">
+                    <h3>🏁 Competitors</h3>
+                    <div id="competitorsList"></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="event-log" id="eventLog">
+            <p>🏎️ System initialized - Upload a track to begin</p>
+        </div>
+    </div>
+
+    <!-- Track Upload Modal -->
+    <div id="trackUploadModal" class="modal">
+        <div class="modal-content">
+            <h2>📁 Upload Track Layout</h2>
+            <div class="form-group">
+                <label>Track Image (PNG/JPG)</label>
+                <input type="file" id="trackImageInput" accept="image/*">
+            </div>
+            <div class="form-group">
+                <label>Track Name</label>
+                <input type="text" id="trackNameInput" placeholder="e.g., Monaco, Silverstone">
+            </div>
+            <div class="form-group">
+                <label>Total Laps</label>
+                <input type="number" id="totalLapsInput" value="50" min="10" max="100">
+            </div>
+            <div style="display: flex; gap: 10px; margin-top: 20px;">
+                <button class="btn-success" style="flex: 1;" onclick="processTrackUpload()">✅ Process Track</button>
+                <button class="btn-danger" style="flex: 1;" onclick="closeModal('trackUploadModal')">❌ Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Config Modal -->
+    <div id="configModal" class="modal">
+        <div class="modal-content">
+            <h2>⚙️ Settings</h2>
+            <div class="form-group">
+                <label>Track Processing Backend URL</label>
+                <input type="text" id="apiUrlInput" value="http://localhost:8001">
+            </div>
+            <div class="form-group">
+                <label>AI Prediction System URL</label>
+                <input type="text" id="aiUrlInput" value="http://localhost:8080">
+            </div>
+            <div class="form-group">
+                <label>Starting Position</label>
+                <input type="number" id="startPositionInput" value="5" min="1" max="20">
+            </div>
+            <div class="form-group">
+                <label>Number of Competitors</label>
+                <input type="number" id="numCompetitorsInput" value="4" min="1" max="19">
+            </div>
+            <div style="display: flex; gap: 10px; margin-top: 20px;">
+                <button class="btn-success" style="flex: 1;" onclick="saveConfig()">✅ Save</button>
+                <button class="btn-danger" style="flex: 1;" onclick="closeModal('configModal')">❌ Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ==================== GLOBAL STATE ====================
+        let API_URL = 'http://localhost:8001';  // Track processing backend
+        let AI_URL = 'http://localhost:8000';    // AI prediction system
+        let canvas = document.getElementById('trackCanvas');
+        let ctx = canvas.getContext('2d');
+        
+        let raceState = {
+            isRunning: false,
+            isPaused: false,
+            currentLap: 1,
+            totalLaps: 50,
+            trackLoaded: false
+        };
+
+        let trackData = {
+            name: 'Default Track',
+            points: [],
+            polygons: [],
+            startLine: null,
+            drsZones: []
+        };
+
+        let ourCar = {
+            id: 'car_our',
+            position: 5,
+            progress: 0,
+            speed: 290,
+            tyreWear: 0,
+            tyreTemp: {FL: 95, FR: 95, RL: 95, RR: 95},
+            fuel: 110,
+            lapTime: 0,
+            currentLap: 1,
+            paceMode: 'BALANCED',
+            x: 0,
+            y: 0,
+            angle: 0,
+            totalTime: 0,
+            actionInProgress: null
+        };
+
+        let competitors = [];
+        let lastTime = Date.now();
+        let animationFrame = null;
+        let currentStrategyResponse = null;
+        let telemetryHistory = [];
+
+        // ==================== TRACK PROCESSING ====================
+        function showTrackUploadModal() {
+            document.getElementById('trackUploadModal').style.display = 'flex';
+        }
+
+        function closeModal(modalId) {
+            document.getElementById(modalId).style.display = 'none';
+        }
+
+        async function processTrackUpload() {
+            const fileInput = document.getElementById('trackImageInput');
+            const trackName = document.getElementById('trackNameInput').value || 'Custom Track';
+            const totalLaps = parseInt(document.getElementById('totalLapsInput').value) || 50;
+
+            if (!fileInput.files || fileInput.files.length === 0) {
+                alert('Please select a track image');
+                return;
+            }
+
+            const file = fileInput.files[0];
+            logEvent(`🔍 Processing track: ${trackName}...`);
+            logEvent(`🐍 Using Python backend for accurate polygon extraction...`);
+
+            try {
+                const formData = new FormData();
+                formData.append('file', file);
+                formData.append('epsilon', '0.01');
+
+                const response = await fetch(`${API_URL}/api/analyze`, {
+                    method: 'POST',
+                    body: formData
+                });
+
+                if (!response.ok) {
+                    throw new Error(`Backend returned ${response.status}`);
+                }
+
+                const result = await response.json();
+                const trackAnalysis = result.data;
+
+                logEvent(`✅ Backend processing complete!`);
+                logEvent(`📊 Detected ${trackAnalysis.statistics.num_segments} segments`);
+                logEvent(`📏 Total track length: ${trackAnalysis.statistics.total_length.toFixed(0)}px`);
+
+                const polygons = [];
+                trackAnalysis.segments.forEach(seg => {
+                    if (seg.start) {
+                        polygons.push({x: seg.start[0], y: seg.start[1]});
+                    }
+                });
+                
+                if (polygons.length > 0) {
+                    const first = polygons[0];
+                    const last = polygons[polygons.length - 1];
+                    if (Math.abs(first.x - last.x) > 5 || Math.abs(first.y - last.y) > 5) {
+                        polygons.push({x: first.x, y: first.y});
+                    }
+                }
+
+                if (polygons.length < 3) {
+                    alert('Backend did not return enough polygon points. Try a different image.');
+                    return;
+                }
+
+                trackData.name = trackName;
+                trackData.points = polygons;
+                trackData.polygons = polygons;
+                trackData.startLine = {x: polygons[0].x, y: polygons[0].y};
+                trackData.drsZones = generateDRSZones(polygons);
+                
+                raceState.totalLaps = totalLaps;
+                raceState.trackLoaded = true;
+
+                scaleTrackToCanvas();
+                
+                logEvent(`✅ Track loaded: ${trackName} (${polygons.length} segments)`);
+                closeModal('trackUploadModal');
+                
+                drawTrack();
+
+            } catch (error) {
+                console.error('Backend track processing error:', error);
+                logEvent(`⚠️ Backend failed: ${error.message}`);
+                alert('Could not connect to Python backend. Make sure it\'s running on ' + API_URL);
+            }
+        }
+
+        function scaleTrackToCanvas() {
+            if (trackData.polygons.length === 0) return;
+
+            let minX = Infinity, minY = Infinity;
+            let maxX = -Infinity, maxY = -Infinity;
+
+            trackData.polygons.forEach(p => {
+                minX = Math.min(minX, p.x);
+                minY = Math.min(minY, p.y);
+                maxX = Math.max(maxX, p.x);
+                maxY = Math.max(maxY, p.y);
+            });
+
+            const trackWidth = maxX - minX;
+            const trackHeight = maxY - minY;
+            const padding = 50;
+
+            const scaleX = (canvas.width - padding * 2) / trackWidth;
+            const scaleY = (canvas.height - padding * 2) / trackHeight;
+            const scale = Math.min(scaleX, scaleY);
+
+            trackData.polygons = trackData.polygons.map(p => ({
+                x: (p.x - minX) * scale + padding,
+                y: (p.y - minY) * scale + padding
+            }));
+
+            trackData.startLine = {
+                x: trackData.polygons[0].x,
+                y: trackData.polygons[0].y
+            };
+        }
+
+        function generateDRSZones(polygons) {
+            const zones = [];
+            const totalPoints = polygons.length;
+
+            zones.push({
+                start: Math.floor(totalPoints * 0.2),
+                end: Math.floor(totalPoints * 0.4),
+                name: 'DRS Zone 1'
+            });
+
+            zones.push({
+                start: Math.floor(totalPoints * 0.6),
+                end: Math.floor(totalPoints * 0.8),
+                name: 'DRS Zone 2'
+            });
+
+            return zones;
+        }
+
+        function distance(p1, p2) {
+            return Math.sqrt((p1.x - p2.x) ** 2 + (p1.y - p2.y) ** 2);
+        }
+
+        // ==================== TRACK RENDERING ====================
+        function drawTrack() {
+            ctx.fillStyle = '#1a1a2e';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            if (!raceState.trackLoaded || trackData.polygons.length < 2) {
+                ctx.fillStyle = '#ffffff';
+                ctx.font = '24px Arial';
+                ctx.textAlign = 'center';
+                ctx.fillText('Upload a track to begin', canvas.width / 2, canvas.height / 2);
+                return;
+            }
+
+            ctx.fillStyle = '#15803d';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            ctx.strokeStyle = '#334155';
+            ctx.lineWidth = 60;
+            ctx.lineCap = 'round';
+            ctx.lineJoin = 'round';
+            ctx.beginPath();
+            trackData.polygons.forEach((p, i) => {
+                if (i === 0) ctx.moveTo(p.x, p.y);
+                else ctx.lineTo(p.x, p.y);
+            });
+            ctx.stroke();
+
+            ctx.strokeStyle = '#ffffff';
+            ctx.lineWidth = 3;
+            ctx.setLineDash([]);
+            ctx.stroke();
+
+            trackData.drsZones.forEach(zone => {
+                ctx.strokeStyle = 'rgba(34, 197, 94, 0.5)';
+                ctx.lineWidth = 50;
+                ctx.setLineDash([15, 15]);
+                ctx.beginPath();
+                for (let i = zone.start; i <= zone.end && i < trackData.polygons.length; i++) {
+                    const p = trackData.polygons[i];
+                    if (i === zone.start) ctx.moveTo(p.x, p.y);
+                    else ctx.lineTo(p.x, p.y);
+                }
+                ctx.stroke();
+                ctx.setLineDash([]);
+            });
+
+            if (trackData.startLine) {
+                const start = trackData.startLine;
+                ctx.fillStyle = '#ffffff';
+                ctx.fillRect(start.x - 20, start.y - 5, 40, 10);
+                ctx.fillStyle = '#000000';
+                for (let i = 0; i < 8; i++) {
+                    if (i % 2 === 0) {
+                        ctx.fillRect(start.x - 20 + i * 5, start.y - 5, 5, 5);
+                    }
+                }
+            }
+
+            drawCar(ourCar, true);
+            competitors.forEach(car => drawCar(car, false));
+        }
+
+        function drawCar(car, isOurCar) {
+            ctx.save();
+            ctx.translate(car.x, car.y);
+            ctx.rotate(car.angle);
+
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.4)';
+            ctx.fillRect(-12, -18, 24, 36);
+
+            if (isOurCar && car.actionInProgress) {
+                ctx.shadowColor = car.actionInProgress.type === 'OVERTAKE' ? '#fb923c' : '#eab308';
+                ctx.shadowBlur = 20;
+                
+                const pulseScale = 1 + Math.sin(Date.now() / 200) * 0.1;
+                ctx.scale(pulseScale, pulseScale);
+            }
+
+            if (isOurCar) {
+                ctx.fillStyle = '#ef4444';
+                ctx.shadowColor = '#dc2626';
+                ctx.shadowBlur = car.actionInProgress ? 20 : 15;
+            } else {
+                ctx.fillStyle = '#3b82f6';
+                ctx.shadowColor = '#2563eb';
+                ctx.shadowBlur = 10;
+            }
+
+            ctx.fillRect(-10, -15, 20, 30);
+            ctx.shadowBlur = 0;
+
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
+            ctx.fillRect(-7, -8, 14, 16);
+
+            ctx.fillStyle = '#ffffff';
+            ctx.font = 'bold 14px Arial';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(`P${car.position}`, 0, 0);
+
+            if (isOurCar && car.actionInProgress) {
+                ctx.font = 'bold 16px Arial';
+                const icon = car.actionInProgress.type === 'OVERTAKE' ? '🏁' : '🔧';
+                ctx.fillText(icon, 0, -25);
+            }
+
+            ctx.restore();
+        }
+
+        // ==================== CAR MOVEMENT ====================
+        function updateCarPosition(car, deltaTime) {
+            if (!raceState.trackLoaded || trackData.polygons.length < 2) return;
+
+            const speed = getCarSpeed(car);
+            const progressIncrement = (speed / 290) * 0.0008 * deltaTime;
+            car.progress += progressIncrement;
+
+            if (car.progress >= 1.0) {
+                car.progress -= 1.0;
+                car.currentLap++;
+                if (car.id === 'car_our') {
+                    onLapComplete();
+                }
+            }
+
+            const totalPoints = trackData.polygons.length;
+            const exactIdx = car.progress * (totalPoints - 1);
+            const idx = Math.floor(exactIdx);
+            const nextIdx = Math.min(idx + 1, totalPoints - 1);
+            
+            const p1 = trackData.polygons[idx];
+            const p2 = trackData.polygons[nextIdx];
+            const t = exactIdx - idx;
+
+            car.x = p1.x + (p2.x - p1.x) * t;
+            car.y = p1.y + (p2.y - p1.y) * t;
+            car.angle = Math.atan2(p2.y - p1.y, p2.x - p1.x);
+        }
+
+        function getCarSpeed(car) {
+            let speed = 290;
+            
+            if (car.id === 'car_our') {
+                speed -= (car.tyreWear / 100) * 30;
+                speed += ((110 - car.fuel) / 110) * 5;
+                
+                if (car.paceMode === 'ATTACK') speed *= 1.05;
+                else if (car.paceMode === 'PUSH') speed *= 1.03;
+                else if (car.paceMode === 'CONSERVE') speed *= 0.97;
+                
+                const avgTemp = (car.tyreTemp.FL + car.tyreTemp.FR + car.tyreTemp.RL + car.tyreTemp.RR) / 4;
+                if (avgTemp > 110) speed *= 0.98;
+                if (avgTemp > 115) speed *= 0.95;
+            } else {
+                speed = 288 + Math.sin(Date.now() / 1000 + car.position) * 2;
+                speed -= (car.tyreWear / 100) * 20;
+            }
+            
+            car.speed = speed;
+            return speed;
+        }
+
+        function updateTelemetry(car, deltaTime) {
+            if (car.id !== 'car_our') {
+                car.tyreWear += 0.02 * deltaTime;
+                car.tyreWear = Math.min(100, car.tyreWear);
+                car.fuel -= 0.015 * deltaTime;
+                car.fuel = Math.max(0, car.fuel);
+                return;
+            }
+
+            let wearRate = 0.04;
+            if (car.paceMode === 'ATTACK') wearRate *= 1.5;
+            else if (car.paceMode === 'PUSH') wearRate *= 1.3;
+            else if (car.paceMode === 'CONSERVE') wearRate *= 0.8;
+            
+            car.tyreWear += wearRate * deltaTime;
+            car.tyreWear = Math.min(100, car.tyreWear);
+            
+            let fuelRate = 0.025;
+            if (car.paceMode === 'ATTACK') fuelRate *= 1.2;
+            car.fuel -= fuelRate * deltaTime;
+            car.fuel = Math.max(0, car.fuel);
+            
+            const baseTemp = 95;
+            const wearTemp = car.tyreWear / 8;
+            const paceTemp = car.paceMode === 'ATTACK' ? 8 : car.paceMode === 'PUSH' ? 5 : 0;
+            const targetTemp = baseTemp + wearTemp + paceTemp;
+            
+            ['FL', 'FR', 'RL', 'RR'].forEach(pos => {
+                const diff = targetTemp - car.tyreTemp[pos];
+                car.tyreTemp[pos] += diff * 0.08 * deltaTime;
+            });
+        }
+
+        // ==================== RACE CONTROL ====================
+        function startRace() {
+            if (!raceState.trackLoaded) {
+                alert('Please upload a track first!');
+                return;
+            }
+
+            if (!raceState.isRunning) {
+                raceState.isRunning = true;
+                raceState.isPaused = false;
+                lastTime = Date.now();
+                logEvent('🚦 Lights out and away we go!');
+                updateLoop();
+            }
+        }
+
+        function pauseRace() {
+            raceState.isPaused = !raceState.isPaused;
+            logEvent(raceState.isPaused ? '⏸️ Race paused' : '▶️ Race resumed');
+            if (!raceState.isPaused && raceState.isRunning) {
+                lastTime = Date.now();
+                updateLoop();
+            }
+        }
+
+        function resetRace() {
+            raceState.isRunning = false;
+            raceState.isPaused = false;
+            raceState.currentLap = 1;
+            
+            if (animationFrame) cancelAnimationFrame(animationFrame);
+            
+            ourCar.progress = 0;
+            ourCar.tyreWear = 0;
+            ourCar.fuel = 110;
+            ourCar.currentLap = 1;
+            ourCar.paceMode = 'BALANCED';
+            ourCar.tyreTemp = {FL: 95, FR: 95, RL: 95, RR: 95};
+            ourCar.totalTime = 0;
+            ourCar.actionInProgress = null;
+            
+            initCompetitors();
+            
+            telemetryHistory = [];
+            currentStrategyResponse = null;
+            
+            updateUI();
+            drawTrack();
+            logEvent('🔄 Race reset complete');
+        }
+
+        function updateLoop() {
+            if (!raceState.isRunning || raceState.isPaused) return;
+            
+            const now = Date.now();
+            const deltaTime = Math.min((now - lastTime) / 16.67, 2);
+            lastTime = now;
+            
+            updateCarPosition(ourCar, deltaTime);
+            updateTelemetry(ourCar, deltaTime);
+            
+            competitors.forEach(car => {
+                updateCarPosition(car, deltaTime);
+                updateTelemetry(car, deltaTime);
+            });
+            
+            updateRacePositions();
+            
+            updateUI();
+            drawTrack();
+            
+            if (ourCar.currentLap <= raceState.totalLaps) {
+                animationFrame = requestAnimationFrame(updateLoop);
+            } else {
+                endRace();
+            }
+        }
+
+        function updateRacePositions() {
+            const allCars = [ourCar, ...competitors];
+            allCars.sort((a, b) => {
+                if (a.currentLap !== b.currentLap) return b.currentLap - a.currentLap;
+                return b.progress - a.progress;
+            });
+            
+            allCars.forEach((car, idx) => {
+                car.position = idx + 1;
+            });
+        }
+
+        function onLapComplete() {
+            ourCar.lapTime = 88 + Math.random() * 3 + (ourCar.tyreWear / 50);
+            ourCar.totalTime += ourCar.lapTime;
+            raceState.currentLap = ourCar.currentLap;
+            
+            logEvent(`🏁 Lap ${ourCar.currentLap} complete - ${ourCar.lapTime.toFixed(3)}s`);
+            
+            telemetryHistory.push({
+                current_lap: ourCar.currentLap,
+                tyre_wear: ourCar.tyreWear,
+                fuel_load: ourCar.fuel,
+                tyre_temp: {...ourCar.tyreTemp},
+                lap_time: ourCar.lapTime,
+                position: ourCar.position,
+                sector_times: [28.5, 31.8, 28.2],
+                speed: ourCar.speed
+            });
+            
+            if (telemetryHistory.length > 50) {
+                telemetryHistory = telemetryHistory.slice(-50);
+            }
+            
+            if (ourCar.currentLap % 5 === 0) {
+                setTimeout(() => analyzeStrategy(), 1000);
+            }
+        }
+
+        function endRace() {
+            raceState.isRunning = false;
+            logEvent(`🏆 RACE FINISHED! Final Position: P${ourCar.position}`);
+            
+            document.getElementById('aiRecommendation').innerHTML = `
+                <h3>🏁 Race Complete!</h3>
+                <div style="text-align: center; padding: 20px;">
+                    <div style="font-size: 48px; font-weight: bold; color: #22c55e;">P${ourCar.position}</div>
+                    <p style="margin-top: 10px;">Final Position</p>
+                    <p style="margin-top: 10px;">Total Time: ${formatTime(ourCar.totalTime)}</p>
+                    <button class="btn-primary" onclick="resetRace()" style="margin-top: 15px;">🔄 New Race</button>
+                </div>
+            `;
+        }
+
+        // ==================== BACKEND INTEGRATION ====================
+        async function analyzeStrategy() {
+            if (!raceState.trackLoaded) {
+                alert('Please start a race first!');
+                return;
+            }
+
+            logEvent('🧠 Analyzing strategy with AI backend...');
+
+            // Format data exactly as the AI backend expects (from main.py OurCarData model)
+            const raceData = {
+                timestamp: Date.now(),
+                our_car: {
+                    position: ourCar.position,
+                    speed: ourCar.speed,
+                    tyre_temp: {
+                        FL: Math.round(ourCar.tyreTemp.FL),
+                        FR: Math.round(ourCar.tyreTemp.FR),
+                        RL: Math.round(ourCar.tyreTemp.RL),
+                        RR: Math.round(ourCar.tyreTemp.RR)
+                    },
+                    tyre_wear: ourCar.tyreWear,
+                    fuel_load: ourCar.fuel,
+                    lap_time: ourCar.lapTime,
+                    current_lap: ourCar.currentLap,
+                    sector_times: [28.5, 31.8, 28.2], // Default sector times
+                    slow_sectors: [] // Can be populated based on sector performance
+                },
+                competitors: competitors.map(c => ({
+                    car_id: c.id,
+                    position: c.position,
+                    speed: Math.round(c.speed),
+                    gap: Math.abs(c.position - ourCar.position) * 2.5,
+                    slow_zones: [], // Empty for now
+                    tyre_age: Math.floor(c.tyreWear / 3) // Estimate age from wear
+                })),
+                track_conditions: {
+                    temperature: 28,
+                    rainfall: 0,
+                    track_evolution: 85
+                },
+                total_laps: raceState.totalLaps,
+                drs_zones: trackData.drsZones.map(z => z.name)
+            };
+
+            try {
+                const response = await fetch(`${AI_URL}/api/strategy/analyze`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify(raceData)
+                });
+
+                if (!response.ok) throw new Error(`HTTP ${response.status}`);
+
+                const result = await response.json();
+                currentStrategyResponse = result;
+
+                displayStrategyResults(result);
+                executeRecommendedAction(result);
+
+                logEvent(`✅ AI Analysis complete - ${result.response_time_ms || 0}ms`);
+
+            } catch (error) {
+                console.error('AI Backend error:', error);
+                logEvent(`⚠️ AI Backend connection failed: ${error.message}`);
+                alert('Could not connect to AI backend. Make sure it\'s running on ' + AI_URL);
+            }
+        }
+
+        function displayStrategyResults(result) {
+            const action = result.immediate_action;
+            const pit = result.pit_stop_recommendation;
+            const pace = result.pace_strategy;
+            const overtakes = result.overtaking_opportunities || [];
+
+            let priorityColor = '#22c55e';
+            if (action.priority === 'CRITICAL') priorityColor = '#ef4444';
+            else if (action.priority === 'HIGH') priorityColor = '#f97316';
+            else if (action.priority === 'MEDIUM') priorityColor = '#eab308';
+
+            document.getElementById('aiRecommendation').innerHTML = `
+                <h3>🤖 AI Recommendation</h3>
+                <div style="background: rgba(139, 92, 246, 0.2); padding: 15px; border-radius: 8px; border: 2px solid ${priorityColor}; ${action.priority === 'CRITICAL' ? 'animation: pulse 1.5s infinite;' : ''}">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                        <strong style="font-size: 1.1em;">${formatActionName(action.action)}</strong>
+                        <span style="background: ${priorityColor}; padding: 4px 12px; border-radius: 12px; font-size: 0.85em;">${action.priority}</span>
+                    </div>
+                    <p style="font-size: 0.9em; opacity: 0.9; margin: 8px 0;">${action.reasoning}</p>
+                    <div style="display: flex; gap: 10px; margin-top: 10px;">
+                        <div style="flex: 1; background: rgba(0,0,0,0.3); padding: 8px; border-radius: 5px; text-align: center;">
+                            <div style="font-size: 0.8em; opacity: 0.7;">Confidence</div>
+                            <div style="font-size: 1.2em; font-weight: bold; color: ${action.confidence >= 70 ? '#22c55e' : '#ef4444'};">${action.confidence}%</div>
+                        </div>
+                        <div style="flex: 1; background: rgba(0,0,0,0.3); padding: 8px; border-radius: 5px; text-align: center;">
+                            <div style="font-size: 0.8em; opacity: 0.7;">Status</div>
+                            <div style="font-size: 1.2em; font-weight: bold;">${action.confidence >= 70 ? '✅ EXECUTING' : '⚠️ SKIPPED'}</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div style="margin-top: 15px; padding: 12px; background: rgba(0,0,0,0.2); border-radius: 8px;">
+                    <strong style="font-size: 0.95em;">🔧 Pit Strategy</strong>
+                    <p style="font-size: 0.85em; margin: 5px 0;">${pit.recommendation}</p>
+                    <div style="font-size: 0.8em; opacity: 0.8;">
+                        Lap ${pit.optimal_lap} • ${pit.tyre_compound} • ${pit.confidence}% confidence
+                    </div>
+                </div>
+
+                <div style="margin-top: 10px; padding: 12px; background: rgba(0,0,0,0.2); border-radius: 8px;">
+                    <strong style="font-size: 0.95em;">⚡ Pace Mode</strong>
+                    <p style="font-size: 0.85em; margin: 5px 0;">${pace.pace_mode}: ${pace.lap_time_target}</p>
+                </div>
+
+                ${overtakes.length > 0 ? `
+                <div style="margin-top: 10px; padding: 12px; background: rgba(34, 197, 94, 0.1); border-radius: 8px; border-left: 3px solid #22c55e;">
+                    <strong style="font-size: 0.95em;">🏁 Overtake Opportunity</strong>
+                    <p style="font-size: 0.85em; margin: 5px 0;">Target P${overtakes[0].current_position} - ${overtakes[0].probability}% success</p>
+                    <p style="font-size: 0.8em; opacity: 0.8;">${overtakes[0].recommendation}</p>
+                </div>
+                ` : ''}
+            `;
+        }
+
+        function formatActionName(action) {
+            const icons = {
+                'OVERTAKE': '🏁',
+                'PIT_NOW': '🔧',
+                'PIT_SOON': '⏰',
+                'HOLD_POSITION': '🛡️',
+                'PUSH_PACE': '⚡',
+                'DEFEND': '🚧',
+                'CONSERVE': '🐢'
+            };
+            return `${icons[action] || '📍'} ${action.replace(/_/g, ' ')}`;
+        }
+
+        function executeRecommendedAction(result) {
+            const action = result.immediate_action.action;
+            const confidence = result.immediate_action.confidence;
+
+            if (confidence < 70) {
+                logEvent(`⚠️ AI action not executed - confidence ${confidence}% < 70% threshold`);
+                return;
+            }
+
+            logEvent(`🎯 AI executing ${action} with ${confidence}% confidence`);
+
+            if (action === 'PIT_NOW' || action === 'PIT_SOON') {
+                setTimeout(() => executePitStop(), 2000);
+            } else if (action === 'OVERTAKE') {
+                setTimeout(() => executeOvertake(result.overtaking_opportunities), 1000);
+            } else if (action === 'PUSH_PACE') {
+                ourCar.paceMode = 'PUSH';
+                logEvent('⚡ Activated PUSH mode - AI strategy');
+            } else if (action === 'CONSERVE') {
+                ourCar.paceMode = 'CONSERVE';
+                logEvent('🐢 Activated CONSERVE mode - AI strategy');
+            } else if (action === 'HOLD_POSITION') {
+                ourCar.paceMode = 'BALANCED';
+                logEvent('🛡️ Holding position - AI strategy');
+            }
+        }
+
+        function executePitStop() {
+            if (!currentStrategyResponse) return;
+
+            logEvent('🔧 Executing AI-recommended pit stop...');
+            
+            const pit = currentStrategyResponse.pit_stop_recommendation;
+            
+            ourCar.actionInProgress = {
+                type: 'PIT_STOP',
+                startTime: Date.now()
+            };
+            
+            const pitTime = 21 + Math.random() * 3;
+            const expectedImpact = pit.expected_time_impact || 0;
+            
+            showPitStopAnimation(pitTime);
+            
+            setTimeout(() => {
+                ourCar.tyreWear = 0;
+                ourCar.tyreTemp = {FL: 95, FR: 95, RL: 95, RR: 95};
+                
+                const oldPos = ourCar.position;
+                const positionsLost = Math.floor(pitTime / 22 * 2);
+                ourCar.position = Math.min(20, ourCar.position + positionsLost);
+                
+                ourCar.progress = Math.max(0, ourCar.progress - 0.03);
+                
+                ourCar.totalTime += pitTime;
+                
+                ourCar.actionInProgress = null;
+
+                logEvent(`✅ Pit complete - ${pit.tyre_compound} tyres fitted`);
+                logEvent(`   Position change: P${oldPos} → P${ourCar.position}`);
+                logEvent(`   ⏱️ Pit time: +${pitTime.toFixed(1)}s`);
+                logEvent(`   📊 Expected long-term impact: ${expectedImpact.toFixed(1)}s`);
+                
+                showTimeEffect(pitTime);
+            }, pitTime * 100);
+        }
+
+        function showPitStopAnimation(pitTime) {
+            const indicator = document.createElement('div');
+            indicator.style.position = 'fixed';
+            indicator.style.top = '50%';
+            indicator.style.left = '50%';
+            indicator.style.transform = 'translate(-50%, -50%)';
+            indicator.style.background = 'rgba(234, 179, 8, 0.95)';
+            indicator.style.padding = '20px 30px';
+            indicator.style.borderRadius = '15px';
+            indicator.style.border = '3px solid #eab308';
+            indicator.style.fontSize = '24px';
+            indicator.style.fontWeight = 'bold';
+            indicator.style.color = '#fff';
+            indicator.style.zIndex = '10000';
+            indicator.style.boxShadow = '0 10px 40px rgba(234, 179, 8, 0.5)';
+            indicator.innerHTML = `🔧 PIT STOP IN PROGRESS<br><span style="font-size: 18px;">Expected: ${pitTime.toFixed(1)}s</span>`;
+            document.body.appendChild(indicator);
+            
+            setTimeout(() => {
+                indicator.remove();
+            }, pitTime * 100);
+        }
+
+        function executeOvertake(opportunities) {
+            if (!opportunities || opportunities.length === 0) return;
+
+            const opp = opportunities[0];
+            const probability = opp.probability;
+
+            ourCar.actionInProgress = {
+                type: 'OVERTAKE',
+                target: opp.current_position,
+                startTime: Date.now()
+            };
+
+            logEvent(`🏁 AI executing overtake on P${opp.current_position}...`);
+            logEvent(`   Success probability: ${probability}%`);
+            
+            showOvertakeAnimation(opp.current_position);
+
+            const roll = Math.random() * 100;
+            
+            setTimeout(() => {
+                ourCar.actionInProgress = null;
+                
+                if (roll < probability) {
+                    const oldPos = ourCar.position;
+                    const timeGain = 0.3 + Math.random() * 0.5;
+                    
+                    const targetCar = competitors.find(c => c.position === opp.current_position);
+                    if (targetCar) {
+                        ourCar.position = targetCar.position;
+                        targetCar.position = oldPos;
+                        ourCar.progress += 0.015;
+                        
+                        ourCar.totalTime -= timeGain;
+                    } else {
+                        ourCar.position = Math.max(1, ourCar.position - 1);
+                        ourCar.progress += 0.015;
+                        ourCar.totalTime -= timeGain;
+                    }
+                    
+                    logEvent(`✅ Overtake successful! P${oldPos} → P${ourCar.position}`);
+                    logEvent(`   ⏱️ Time gained: -${timeGain.toFixed(3)}s`);
+                    logEvent(`   🎯 AI prediction was correct!`);
+                    
+                    showTimeEffect(-timeGain);
+                } else {
+                    const timeLoss = 0.2 + Math.random() * 0.4;
+                    ourCar.progress -= 0.008;
+                    ourCar.totalTime += timeLoss;
+                    
+                    logEvent(`❌ Overtake failed - lost time`);
+                    logEvent(`   ⏱️ Time lost: +${timeLoss.toFixed(3)}s`);
+                    logEvent(`   🎲 AI predicted ${probability}%, luck wasn't on our side`);
+                    
+                    showTimeEffect(timeLoss);
+                }
+            }, 1500);
+        }
+
+        function showOvertakeAnimation(targetPosition) {
+            const indicator = document.createElement('div');
+            indicator.style.position = 'fixed';
+            indicator.style.top = '50%';
+            indicator.style.left = '50%';
+            indicator.style.transform = 'translate(-50%, -50%)';
+            indicator.style.background = 'rgba(251, 146, 60, 0.95)';
+            indicator.style.padding = '20px 30px';
+            indicator.style.borderRadius = '15px';
+            indicator.style.border = '3px solid #fb923c';
+            indicator.style.fontSize = '24px';
+            indicator.style.fontWeight = 'bold';
+            indicator.style.color = '#fff';
+            indicator.style.zIndex = '10000';
+            indicator.style.boxShadow = '0 10px 40px rgba(251, 146, 60, 0.5)';
+            indicator.innerHTML = `🏁 OVERTAKING P${targetPosition}...`;
+            document.body.appendChild(indicator);
+            
+            setTimeout(() => {
+                indicator.remove();
+            }, 1500);
+        }
+
+        function showTimeEffect(timeDelta) {
+            const effect = document.createElement('div');
+            effect.style.position = 'fixed';
+            effect.style.top = '20%';
+            effect.style.right = '20px';
+            effect.style.padding = '15px 25px';
+            effect.style.borderRadius = '10px';
+            effect.style.fontSize = '28px';
+            effect.style.fontWeight = 'bold';
+            effect.style.zIndex = '10000';
+            effect.style.transition = 'all 0.5s';
+            effect.style.opacity = '1';
+            
+            if (timeDelta < 0) {
+                effect.style.background = 'rgba(34, 197, 94, 0.95)';
+                effect.style.border = '3px solid #22c55e';
+                effect.style.color = '#fff';
+                effect.innerHTML = `⏱️ ${timeDelta.toFixed(3)}s`;
+            } else {
+                effect.style.background = 'rgba(239, 68, 68, 0.95)';
+                effect.style.border = '3px solid #ef4444';
+                effect.style.color = '#fff';
+                effect.innerHTML = `⏱️ +${timeDelta.toFixed(3)}s`;
+            }
+            
+            document.body.appendChild(effect);
+            
+            setTimeout(() => {
+                effect.style.opacity = '0';
+                effect.style.transform = 'translateY(-50px)';
+            }, 100);
+            
+            setTimeout(() => {
+                effect.remove();
+            }, 2000);
+        }
+
+        // ==================== UI UPDATES ====================
+        function updateUI() {
+            document.getElementById('currentLap').textContent = `${ourCar.currentLap}/${raceState.totalLaps}`;
+            document.getElementById('position').textContent = `P${ourCar.position}`;
+            document.getElementById('lapTime').textContent = formatTime(ourCar.lapTime);
+            
+            const totalTimeMins = Math.floor(ourCar.totalTime / 60);
+            const totalTimeSecs = (ourCar.totalTime % 60).toFixed(3);
+            document.getElementById('totalTime').textContent = `${totalTimeMins}:${totalTimeSecs.padStart(6, '0')}`;
+
+            const tyreWearPct = Math.round(ourCar.tyreWear);
+            const tyreWearBar = document.getElementById('tyreWearBar');
+            tyreWearBar.style.width = `${tyreWearPct}%`;
+            tyreWearBar.textContent = `${tyreWearPct}%`;
+            tyreWearBar.className = `progress-fill ${tyreWearPct > 75 ? 'fill-red' : tyreWearPct > 50 ? 'fill-yellow' : 'fill-green'}`;
+
+            const fuelPct = Math.round((ourCar.fuel / 110) * 100);
+            const fuelBar = document.getElementById('fuelBar');
+            fuelBar.style.width = `${fuelPct}%`;
+            fuelBar.textContent = `${fuelPct}%`;
+            fuelBar.className = `progress-fill ${fuelPct < 25 ? 'fill-red' : fuelPct < 50 ? 'fill-yellow' : 'fill-green'}`;
+
+            document.getElementById('tempFL').textContent = `${Math.round(ourCar.tyreTemp.FL)}°C`;
+            document.getElementById('tempFR').textContent = `${Math.round(ourCar.tyreTemp.FR)}°C`;
+            document.getElementById('tempRL').textContent = `${Math.round(ourCar.tyreTemp.RL)}°C`;
+            document.getElementById('tempRR').textContent = `${Math.round(ourCar.tyreTemp.RR)}°C`;
+
+            updateCompetitorsList();
+        }
+
+        function updateCompetitorsList() {
+            const allCars = [ourCar, ...competitors].sort((a, b) => a.position - b.position);
+            
+            const html = allCars.map(car => {
+                const isOur = car.id === 'car_our';
+                return `
+                    <div class="car-info ${isOur ? 'our-car' : 'ai-car'}">
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <strong>P${car.position} ${isOur ? '(YOU)' : car.id}</strong>
+                            <span style="font-size: 0.85em; opacity: 0.8;">Lap ${car.currentLap}</span>
+                        </div>
+                        <div style="font-size: 0.8em; opacity: 0.7; margin-top: 3px;">
+                            Tyre: ${Math.round(car.tyreWear)}% | Fuel: ${Math.round(car.fuel)}kg
+                        </div>
+                    </div>
+                `;
+            }).join('');
+
+            document.getElementById('competitorsList').innerHTML = html;
+        }
+
+        function formatTime(seconds) {
+            const mins = Math.floor(seconds / 60);
+            const secs = (seconds % 60).toFixed(3);
+            return `${mins}:${secs.padStart(6, '0')}`;
+        }
+
+        function logEvent(message) {
+            const log = document.getElementById('eventLog');
+            const timestamp = new Date().toLocaleTimeString();
+            const entry = document.createElement('p');
+            entry.textContent = `[${timestamp}] ${message}`;
+            log.insertBefore(entry, log.firstChild);
+            
+            while (log.children.length > 20) {
+                log.removeChild(log.lastChild);
+            }
+        }
+
+        // ==================== CONFIGURATION ====================
+        function showConfigModal() {
+            document.getElementById('apiUrlInput').value = API_URL;
+            document.getElementById('aiUrlInput').value = AI_URL;
+            document.getElementById('startPositionInput').value = ourCar.position;
+            document.getElementById('numCompetitorsInput').value = competitors.length;
+            document.getElementById('configModal').style.display = 'flex';
+        }
+
+        function saveConfig() {
+            API_URL = document.getElementById('apiUrlInput').value;
+            AI_URL = document.getElementById('aiUrlInput').value;
+            const startPos = parseInt(document.getElementById('startPositionInput').value);
+            const numComps = parseInt(document.getElementById('numCompetitorsInput').value);
+
+            ourCar.position = startPos;
+            
+            competitors = [];
+            for (let i = 1; i <= numComps; i++) {
+                competitors.push(createCompetitor(i));
+            }
+
+            logEvent(`⚙️ Configuration saved`);
+            logEvent(`   Track Backend: ${API_URL}`);
+            logEvent(`   AI Backend: ${AI_URL}`);
+            closeModal('configModal');
+            updateUI();
+        }
+
+        function createCompetitor(id) {
+            return {
+                id: `car_${id}`,
+                position: id < ourCar.position ? id : id + 1,
+                progress: Math.random() * 0.1,
+                speed: 288 + Math.random() * 4,
+                tyreWear: Math.random() * 10,
+                tyreTemp: {FL: 95, FR: 95, RL: 95, RR: 95},
+                fuel: 110,
+                lapTime: 0,
+                currentLap: 1,
+                paceMode: 'BALANCED',
+                x: 0,
+                y: 0,
+                angle: 0
+            };
+        }
+
+        function initCompetitors() {
+            competitors = [];
+            const numComps = parseInt(document.getElementById('numCompetitorsInput')?.value || 4);
+            for (let i = 1; i <= numComps; i++) {
+                competitors.push(createCompetitor(i));
+            }
+        }
+
+        // ==================== INITIALIZATION ====================
+        window.addEventListener('load', () => {
+            initCompetitors();
+            updateUI();
+            logEvent('🏎️ F1 Quantum Strategy Simulator initialized');
+            logEvent(`🔡 Backend: ${API_URL}`);
+            
+            // Check backend connectivity
+            fetch(`${API_URL}/api/analyze`, {method: 'OPTIONS'})
+                .then(() => {
+                    document.getElementById('opencvStatus').innerHTML = '✅ Python Backend Connected';
+                    document.getElementById('opencvStatus').style.background = 'rgba(34, 197, 94, 0.2)';
+                    logEvent('✅ Python backend ready for track processing');
+                })
+                .catch(() => {
+                    document.getElementById('opencvStatus').innerHTML = '⚠️ Backend Offline - Check Connection';
+                    document.getElementById('opencvStatus').style.background = 'rgba(239, 68, 68, 0.2)';
+                    logEvent('⚠️ Python backend not reachable at ' + API_URL);
+                });
+        });
+    </script>
+</body>
+</html>
