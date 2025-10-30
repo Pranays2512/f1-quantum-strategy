@@ -1,0 +1,13 @@
+# Python cache
+__pycache__/
+*.pyc
+
+# Virtual environments
+venv/
+
+# macOS system files
+.DS_Store
+*.icloud
+
+# Logs
+*.log
