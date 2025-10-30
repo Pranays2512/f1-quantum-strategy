@@ -25,11 +25,34 @@ class QuantumStrategyEngine:
         # Calculate urgency factors
         temp_urgency = self._calculate_temp_urgency(tyre_temps)
         wear_urgency = tyre_wear / 100.0
+    
+        # NEW: Combined urgency with exponential scaling
+        combined_urgency = max(temp_urgency, wear_urgency)
+        if tyre_wear > 80 and temp_urgency > 0.7:
+            combined_urgency = min(0.98, combined_urgency * 1.3)  # Extra urgent
+        
+        # NEW: Calculate laps since pit (if we can estimate)
+        estimated_stint_length = max(1, int(tyre_wear / 3))  # Rough estimate
+        
+        # CRITICAL CONDITION CHECK (bypass quantum if urgent)
+        if combined_urgency > 0.9 or (tyre_wear > 85 and temp_urgency > 0.75):
+            return {
+                "recommendation": "URGENT - PIT NOW!",
+                "optimal_lap": current_lap + 1,
+                "laps_until_pit": 1,
+                "tyre_compound": "Hard" if track_conditions.rainfall < 20 else "Intermediate",
+                "confidence": 95.0,
+                "expected_time_impact": -25.0,
+                "reasoning": f"CRITICAL: Wear={tyre_wear}%, Temp={max(tyre_temps.values())}°C | Emergency pit required",
+                "alternative_strategies": []
+            }
         
         # Define possible pit windows (next 10 laps)
         possible_pit_laps = []
         for i in range(1, min(11, total_laps - current_lap + 1)):
             possible_pit_laps.append(current_lap + i)
+            
+        # Define possible pit windows (next 10 laps)
         
         if not possible_pit_laps:
             return {

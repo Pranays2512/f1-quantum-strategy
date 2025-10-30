@@ -1,78 +1,106 @@
 #!/bin/bash
-# F1 Quantum Strategy Backend - Quick Start Script
-# This script automates the entire setup process
+# Quick fix script for Python 3.13 compatibility
 
-echo "🏎️  F1 Quantum Strategy Backend - Automated Setup"
-echo "=================================================="
+echo "🔧 F1 Quantum Strategy - Quick Fix for Python 3.13"
+echo "==================================================="
 echo ""
 
-# Check if Python is installed
-if ! command -v python3 &> /dev/null; then
-    echo "❌ Python 3 is not installed!"
-    echo "Please install Python 3.9 or higher from python.org"
+# Check if we're in the right directory
+if [ ! -f "main.py" ]; then
+    echo "❌ Error: main.py not found!"
+    echo "Please run this script from the f1-quantum-strategy folder"
     exit 1
 fi
 
-echo "✅ Python found: $(python3 --version)"
-
-# Check if pip is installed
-if ! command -v pip3 &> /dev/null; then
-    echo "❌ pip is not installed!"
-    echo "Please install pip: python3 -m ensurepip --upgrade"
-    exit 1
-fi
-
-echo "✅ pip found"
+echo "✅ Found project files"
+echo "✅ Python version: $(python3 --version)"
 echo ""
 
-# Create project directory
-echo "📁 Creating project directory..."
-mkdir -p f1-quantum-strategy
-cd f1-quantum-strategy
+# Remove old venv if it exists
+if [ -d "venv" ]; then
+    echo "🗑️  Removing old virtual environment..."
+    rm -rf venv
+fi
 
-# Create virtual environment
-echo "🔧 Creating virtual environment..."
+# Create fresh virtual environment
+echo "🔧 Creating new virtual environment..."
 python3 -m venv venv
 
-# Activate virtual environment
+# Activate it
 echo "⚡ Activating virtual environment..."
-if [[ "$OSTYPE" == "msys" || "$OSTYPE" == "win32" ]]; then
-    # Windows
-    source venv/Scripts/activate
-else
-    # Mac/Linux
-    source venv/bin/activate
-fi
+source venv/bin/activate
 
-# Install dependencies
-echo "📦 Installing dependencies (this may take a few minutes)..."
-pip install --quiet fastapi uvicorn qiskit qiskit-aer numpy pandas pydantic requests
+# Upgrade pip first
+echo "📦 Upgrading pip..."
+pip install --upgrade pip --quiet
+
+# Install dependencies one by one with error handling
+echo ""
+echo "📦 Installing dependencies (this will take 2-3 minutes)..."
+echo ""
+
+# Install in order of dependency
+echo "   [1/8] Installing FastAPI..."
+pip install "fastapi>=0.115.0" --quiet
+
+echo "   [2/8] Installing Uvicorn..."
+pip install "uvicorn[standard]>=0.32.0" --quiet
+
+echo "   [3/8] Installing Pydantic..."
+pip install "pydantic>=2.10.0" --quiet
+
+echo "   [4/8] Installing NumPy (this may take a minute)..."
+pip install "numpy>=1.26.0,<2.3.0" --quiet
+
+echo "   [5/8] Installing Pandas (this may take a minute)..."
+pip install "pandas>=2.2.0" --quiet
+
+echo "   [6/8] Installing Qiskit..."
+pip install "qiskit>=1.3.0" --quiet
+
+echo "   [7/8] Installing Qiskit-Aer..."
+pip install "qiskit-aer>=0.15.0" --quiet
+
+echo "   [8/8] Installing utilities..."
+pip install requests python-multipart --quiet
+
+echo ""
+echo "=============================================="
+echo "✅ Installation Complete!"
+echo "=============================================="
+echo ""
+echo "🧪 Running quick test..."
+echo ""
+
+# Quick test
+python3 -c "
+import fastapi
+import qiskit
+import numpy as np
+import pandas as pd
+print('✅ FastAPI version:', fastapi.__version__)
+print('✅ Qiskit version:', qiskit.__version__)
+print('✅ NumPy version:', np.__version__)
+print('✅ Pandas version:', pd.__version__)
+print('')
+print('🎉 All dependencies loaded successfully!')
+"
 
 if [ $? -eq 0 ]; then
-    echo "✅ All dependencies installed successfully!"
+    echo ""
+    echo "=============================================="
+    echo "🚀 Ready to start!"
+    echo "=============================================="
+    echo ""
+    echo "Run the backend with:"
+    echo "   python3 main.py"
+    echo ""
+    echo "Or test with:"
+    echo "   python3 quick_test.py"
+    echo ""
 else
-    echo "❌ Installation failed. Please check your internet connection."
-    exit 1
+    echo ""
+    echo "❌ There was an issue with the installation"
+    echo "Try running: pip install -r requirements.txt"
+    echo ""
 fi
-
-echo ""
-echo "=================================================="
-echo "✅ Setup Complete!"
-echo "=================================================="
-echo ""
-echo "📋 Next Steps:"
-echo "1. Copy your Python files (main.py, quantum_strategy_engine.py, etc.) into:"
-echo "   $(pwd)"
-echo ""
-echo "2. Start the backend:"
-echo "   python main.py"
-echo ""
-echo "3. Test at: http://localhost:8000/docs"
-echo ""
-echo "💡 To activate virtual environment later:"
-if [[ "$OSTYPE" == "msys" || "$OSTYPE" == "win32" ]]; then
-    echo "   venv\\Scripts\\activate"
-else
-    echo "   source venv/bin/activate"
-fi
-echo ""
