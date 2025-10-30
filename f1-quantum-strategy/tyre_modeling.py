@@ -1,11 +1,15 @@
 """
-Tyre Wear & Temperature Modeling Module
+Tyre Wear & Temperature Modeling Module - FIXED
 Physical modeling of tyre degradation and temperature dynamics
 """
 
 import numpy as np
 from typing import Dict, List, Tuple
 from scipy.optimize import curve_fit
+import warnings
+
+# Suppress scipy optimization warnings
+warnings.filterwarnings('ignore', category=RuntimeWarning, module='scipy.optimize')
 
 class TyreModel:
     """Physical model for tyre wear and temperature prediction"""
@@ -51,8 +55,8 @@ class TyreModel:
         )
         
         # Predict future wear
-        current_lap = laps[-1]
-        current_wear = wear_values[-1]
+        current_lap = int(laps[-1])
+        current_wear = float(wear_values[-1])
         future_laps = np.arange(current_lap + 1, total_laps + 1)
         
         # Build wear curve
@@ -61,14 +65,14 @@ class TyreModel:
         
         for lap in future_laps:
             # Assume temperature stabilizes near current average
-            predicted_temp = np.mean(temp_averages[-3:]) if len(temp_averages) >= 3 else temp_averages[-1]
+            predicted_temp = float(np.mean(temp_averages[-3:])) if len(temp_averages) >= 3 else float(temp_averages[-1])
             lap_wear_rate = self._get_wear_rate_for_conditions(predicted_temp, track_temp)
             predicted_wear += lap_wear_rate
             
             wear_curve.append({
                 'lap': int(lap),
-                'predicted_wear': round(min(100, predicted_wear), 2),
-                'wear_rate': round(lap_wear_rate, 3)
+                'predicted_wear': round(float(min(100, predicted_wear)), 2),
+                'wear_rate': round(float(lap_wear_rate), 3)
             })
             
             if predicted_wear >= 95:  # Critical wear level
@@ -87,13 +91,13 @@ class TyreModel:
         return {
             'predicted_failure_lap': failure_lap,
             'wear_curve': wear_curve[:20],  # Limit to next 20 laps
-            'current_wear_rate': round(wear_rate, 3),
+            'current_wear_rate': round(float(wear_rate), 3),
             'laps_remaining_estimate': int((90 - current_wear) / wear_rate) if wear_rate > 0 else 999,
-            'confidence': round(confidence * 100, 1),
+            'confidence': round(float(confidence * 100), 1),
             'model_type': 'Physical degradation model',
             'assumptions': {
-                'stable_temperature': round(np.mean(temp_averages[-3:]), 1) if len(temp_averages) >= 3 else None,
-                'track_temp': track_temp
+                'stable_temperature': round(float(np.mean(temp_averages[-3:])), 1) if len(temp_averages) >= 3 else None,
+                'track_temp': float(track_temp)
             }
         }
     
@@ -134,12 +138,15 @@ class TyreModel:
                 def temp_model(lap, t_eq, k, t_0):
                     return t_eq - (t_eq - t_0) * np.exp(-k * (lap - laps[0]))
                 
-                popt, _ = curve_fit(temp_model, laps, avg_temps, 
-                                   p0=[100, 0.1, avg_temps[0]],
-                                   maxfev=1000)
+                # Suppress curve_fit warnings
+                with warnings.catch_warnings():
+                    warnings.simplefilter("ignore")
+                    popt, _ = curve_fit(temp_model, laps, avg_temps, 
+                                       p0=[100, 0.1, avg_temps[0]],
+                                       maxfev=1000)
                 
                 # Predict future temperatures
-                current_lap = laps[-1]
+                current_lap = int(laps[-1])
                 future_lap_nums = np.arange(current_lap + 1, current_lap + future_laps + 1)
                 predicted_temps = temp_model(future_lap_nums, *popt)
                 
@@ -154,7 +161,7 @@ class TyreModel:
                     })
                 
                 # Determine trend
-                temp_change = predicted_temps[-1] - avg_temps[-1]
+                temp_change = float(predicted_temps[-1] - avg_temps[-1])
                 if temp_change > 5:
                     trend = 'rising'
                 elif temp_change < -5:
@@ -162,11 +169,11 @@ class TyreModel:
                 else:
                     trend = 'stable'
                 
-            except:
+            except Exception:
                 # Fallback to linear trend
                 temp_slope = (avg_temps[-1] - avg_temps[0]) / (laps[-1] - laps[0])
                 predictions = []
-                current_temp = avg_temps[-1]
+                current_temp = float(avg_temps[-1])
                 
                 for i in range(1, future_laps + 1):
                     future_temp = current_temp + (temp_slope * i)
@@ -184,10 +191,10 @@ class TyreModel:
                     trend = 'stable'
         else:
             # Insufficient data - assume stable
-            current_temp = avg_temps[-1]
+            current_temp = float(avg_temps[-1])
             predictions = [{
                 'lap': int(laps[-1] + i),
-                'predicted_avg_temp': round(float(current_temp), 1),
+                'predicted_avg_temp': round(current_temp, 1),
                 'status': self._get_temp_status(current_temp)
             } for i in range(1, future_laps + 1)]
             trend = 'stable'
@@ -296,9 +303,9 @@ class TyreModel:
         return {
             'recommended_compound': recommended,
             'alternative': alternative,
-            'confidence': round(confidence, 1),
+            'confidence': round(float(confidence), 1),
             'reasoning': reasoning,
-            'scores': scores
+            'scores': {k: int(v) for k, v in scores.items()}
         }
     
     def _calculate_dynamic_wear_rate(self, temperatures: np.ndarray,
@@ -308,7 +315,7 @@ class TyreModel:
             return self.base_wear_rate
         
         # Recent average temperature
-        recent_temp = np.mean(temperatures[-3:]) if len(temperatures) >= 3 else temperatures[-1]
+        recent_temp = float(np.mean(temperatures[-3:])) if len(temperatures) >= 3 else float(temperatures[-1])
         
         # Base rate adjusted for temperature
         temp_factor = self._get_temp_factor(recent_temp)
@@ -316,13 +323,13 @@ class TyreModel:
         
         wear_rate = self.base_wear_rate * temp_factor * track_factor
         
-        return max(0.5, min(8.0, wear_rate))  # Clamp to realistic range
+        return float(max(0.5, min(8.0, wear_rate)))  # Clamp to realistic range
     
     def _get_wear_rate_for_conditions(self, tyre_temp: float, track_temp: float) -> float:
         """Get instantaneous wear rate for given conditions"""
         temp_factor = self._get_temp_factor(tyre_temp)
         track_factor = 1 + (track_temp - 25) * self.track_temp_factor
-        return self.base_wear_rate * temp_factor * track_factor
+        return float(self.base_wear_rate * temp_factor * track_factor)
     
     def _get_temp_factor(self, temperature: float) -> float:
         """Calculate wear multiplier based on temperature"""
@@ -357,7 +364,7 @@ class TyreModel:
             return 0.4
         
         # Calculate actual wear rate from data
-        actual_rate = (wear_values[-1] - wear_values[0]) / (laps[-1] - laps[0])
+        actual_rate = float((wear_values[-1] - wear_values[0]) / (laps[-1] - laps[0]))
         
         # Compare predicted vs actual
         error = abs(predicted_rate - actual_rate) / (actual_rate + 0.1)
@@ -370,7 +377,7 @@ class TyreModel:
         elif len(wear_values) >= 10:
             confidence *= 1.1
         
-        return min(0.95, confidence)
+        return float(min(0.95, confidence))
     
     def _generate_temp_warning(self, trend: str, predictions: List[Dict]) -> str:
         """Generate warning message based on temperature predictions"""

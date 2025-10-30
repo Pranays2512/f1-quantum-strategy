@@ -1,5 +1,6 @@
 """
-Enhanced Quantum Strategy Engine with Better Confidence and Real Scenario Analysis
+Enhanced Quantum Strategy Engine - FIXED
+Handles dict track_conditions properly
 """
 
 from qiskit import QuantumCircuit
@@ -14,8 +15,23 @@ class QuantumStrategyEngine:
         
     def optimize_pit_strategy(self, current_lap: int, tyre_wear: float, 
                              tyre_temps: Dict, total_laps: int,
-                             competitors: List, track_conditions) -> Dict:
-        """Enhanced pit strategy with higher confidence"""
+                             competitors: List, track_conditions: Dict) -> Dict:
+        """
+        Enhanced pit strategy with higher confidence
+        
+        FIXED: track_conditions is now properly handled as a dict
+        """
+        
+        # Safely extract track conditions (handle both dict and object)
+        if isinstance(track_conditions, dict):
+            rainfall = track_conditions.get('rainfall', 0)
+            temperature = track_conditions.get('temperature', 25)
+            track_evolution = track_conditions.get('track_evolution', 85)
+        else:
+            # Fallback for object-style access
+            rainfall = getattr(track_conditions, 'rainfall', 0)
+            temperature = getattr(track_conditions, 'temperature', 25)
+            track_evolution = getattr(track_conditions, 'track_evolution', 85)
         
         # Calculate urgency factors with better scaling
         temp_urgency = self._calculate_temp_urgency(tyre_temps)
@@ -28,15 +44,20 @@ class QuantumStrategyEngine:
         
         # CRITICAL bypass
         if combined_urgency > 0.85 or tyre_wear > 85:
+            compound = "Hard" if rainfall < 20 else "Intermediate"
+            if rainfall > 50:
+                compound = "Wet"
+            
             return {
                 "recommendation": "URGENT - PIT NOW!",
                 "optimal_lap": current_lap + 1,
                 "laps_until_pit": 1,
-                "tyre_compound": "Hard" if track_conditions.rainfall < 20 else "Intermediate",
-                "confidence": 98.5,  # High confidence for critical
+                "tyre_compound": compound,
+                "confidence": 98.5,
                 "expected_time_impact": -25.0,
                 "reasoning": f"CRITICAL: Wear={tyre_wear:.1f}%, Temp={max(tyre_temps.values())}°C",
-                "alternative_strategies": []
+                "alternative_strategies": [],
+                "current_wear_rate": wear_urgency * 100
             }
         
         # Quantum circuit with more qubits for better resolution
@@ -52,7 +73,7 @@ class QuantumStrategyEngine:
         qc.ry(temp_urgency * np.pi * 0.8, 1)
         
         # Weather influence
-        if track_conditions.rainfall > 30:
+        if rainfall > 30:
             qc.x(3)  # Force wet tyres
         elif temp_urgency > 0.6:
             qc.x(2)  # Prefer hard compound
@@ -82,9 +103,9 @@ class QuantumStrategyEngine:
         
         # Confidence boost based on data quality
         data_quality_multiplier = 1.0
-        if tyre_wear > 70:  # Clear signal
+        if tyre_wear > 70:
             data_quality_multiplier = 1.3
-        if temp_urgency > 0.7:  # Strong signal
+        if temp_urgency > 0.7:
             data_quality_multiplier *= 1.2
         
         # Enhanced confidence (65-98% range)
@@ -105,9 +126,9 @@ class QuantumStrategyEngine:
             optimal_lap = current_lap + min(10, laps_remaining // 3)
         
         # Tyre compound logic
-        if track_conditions.rainfall > 50:
+        if rainfall > 50:
             tyre_compound = "Wet"
-        elif track_conditions.rainfall > 20:
+        elif rainfall > 20:
             tyre_compound = "Intermediate"
         elif strategy_bits[2] == 1 or temp_urgency > 0.6:
             tyre_compound = "Hard"
@@ -138,7 +159,8 @@ class QuantumStrategyEngine:
                 "measurements": self.shots,
                 "state_collapse": best_strategy,
                 "probability": round(raw_confidence, 4)
-            }
+            },
+            "current_wear_rate": round(wear_urgency * 3.0, 2)  # Estimated %/lap
         }
     
     def optimize_pace_strategy(self, current_position: int, fuel_load: float,
