@@ -102,42 +102,32 @@ class RaceData(BaseModel):
 # ==================== HELPER FUNCTIONS ====================
 
 def store_telemetry(race_data: RaceData) -> List[Dict]:
-    """Store telemetry with better error handling"""
+    """Store telemetry and return history"""
     car_id = f"car_{race_data.our_car.position}"
     
     if car_id not in telemetry_history:
         telemetry_history[car_id] = deque(maxlen=MAX_HISTORY)
     
-    # FIX: Ensure sector_times is always list and has exactly 3 elements
+    # Ensure sector_times has exactly 3 elements
     sector_times = race_data.our_car.sector_times
-    if not isinstance(sector_times, list):
-        sector_times = [30.0, 32.0, 28.0]  # Default values
+    if len(sector_times) < 3:
+        sector_times = sector_times + [0.0] * (3 - len(sector_times))
+    elif len(sector_times) > 3:
+        sector_times = sector_times[:3]
     
-    # Pad or trim to exactly 3 elements
-    while len(sector_times) < 3:
-        sector_times.append(30.0)
-    sector_times = sector_times[:3]
-    
-    # FIX: Convert to native Python types
     sample = {
-        'current_lap': int(race_data.our_car.current_lap),
-        'tyre_wear': float(race_data.our_car.tyre_wear),
-        'fuel_load': float(race_data.our_car.fuel_load),
-        'tyre_temp': {
-            'FL': float(race_data.our_car.tyre_temp.FL),
-            'FR': float(race_data.our_car.tyre_temp.FR),
-            'RL': float(race_data.our_car.tyre_temp.RL),
-            'RR': float(race_data.our_car.tyre_temp.RR)
-        },
-        'lap_time': float(race_data.our_car.lap_time),
-        'position': int(race_data.our_car.position),
-        'sector_times': [float(x) for x in sector_times]
+        'current_lap': race_data.our_car.current_lap,
+        'tyre_wear': race_data.our_car.tyre_wear,
+        'fuel_load': race_data.our_car.fuel_load,
+        'tyre_temp': race_data.our_car.tyre_temp.dict(),
+        'lap_time': race_data.our_car.lap_time,
+        'position': race_data.our_car.position,
+        'sector_times': sector_times
     }
     telemetry_history[car_id].append(sample)
     
     return list(telemetry_history[car_id])
 
-   
 def build_history_if_needed(history: List[Dict], race_data: RaceData) -> List[Dict]:
     """Build synthetic history if we don't have enough samples"""
     if len(history) >= 5:
@@ -185,7 +175,10 @@ async def root():
 
 @app.post("/api/strategy/analyze")
 async def analyze_strategy_comprehensive(race_data: RaceData):
-    """COMPREHENSIVE with better error handling"""
+    """
+    COMPREHENSIVE STRATEGY ANALYSIS
+    Uses all available engines for complete race strategy
+    """
     start_time = datetime.now()
     
     try:
@@ -193,14 +186,10 @@ async def analyze_strategy_comprehensive(race_data: RaceData):
         history = store_telemetry(race_data)
         history = build_history_if_needed(history, race_data)
         
-        # Extract features safely
-        try:
-            features = extract_features_advanced(history) if len(history) >= 5 else extract_features_simple(history)
-        except Exception as e:
-            logger.warning(f"Feature extraction failed: {e}")
-            features = {}
+        # Extract features
+        features = extract_features_advanced(history) if len(history) >= 5 else extract_features_simple(history)
         
-        # 1. PIT STOP ANALYSIS
+        # 1. PIT STOP ANALYSIS (Enhanced)
         try:
             pit_window = pit_predictor.predict_pit_window(history, race_data.total_laps)
         except Exception as e:
@@ -208,7 +197,7 @@ async def analyze_strategy_comprehensive(race_data: RaceData):
             pit_window = {
                 'predicted_pit_lap': race_data.our_car.current_lap + 10,
                 'confidence': 50.0,
-                'reasoning': 'Default prediction due to error'
+                'reasoning': 'Default prediction due to insufficient data'
             }
         
         try:
@@ -225,50 +214,30 @@ async def analyze_strategy_comprehensive(race_data: RaceData):
                 'overcut': {'viable': False}
             }
         
-        # Quantum pit recommendation
-        try:
-            pit_recommendation = quantum_engine.optimize_pit_strategy(
-                current_lap=race_data.our_car.current_lap,
-                tyre_wear=race_data.our_car.tyre_wear,
-                tyre_temps=race_data.our_car.tyre_temp.dict(),
-                total_laps=race_data.total_laps,
-                competitors=race_data.competitors,
-                track_conditions=race_data.track_conditions
-            )
-        except Exception as e:
-            logger.error(f"Quantum pit optimization failed: {e}")
-            pit_recommendation = {
-                'recommendation': 'Monitor conditions',
-                'optimal_lap': race_data.our_car.current_lap + 10,
-                'tyre_compound': 'Medium',
-                'confidence': 50.0,
-                'expected_time_impact': 0.0,
-                'reasoning': 'Default due to optimization error'
-            }
+        pit_recommendation = quantum_engine.optimize_pit_strategy(
+            current_lap=race_data.our_car.current_lap,
+            tyre_wear=race_data.our_car.tyre_wear,
+            tyre_temps=race_data.our_car.tyre_temp.dict(),
+            total_laps=race_data.total_laps,
+            competitors=race_data.competitors,
+            track_conditions=race_data.track_conditions
+        )
         
         # Merge pit analysis
         pit_recommendation['prediction'] = pit_window
         pit_recommendation['undercut_overcut'] = undercut_overcut
         pit_recommendation['features_analyzed'] = features
         
-        # 2. TYRE ANALYSIS with error handling
+        # 2. TYRE ANALYSIS
         try:
             tyre_life = tyre_model.predict_tyre_life(
                 history,
                 race_data.track_conditions.temperature,
                 race_data.total_laps
             )
-        except Exception as e:
-            logger.warning(f"Tyre life prediction failed: {e}")
-            tyre_life = {'predicted_failure_lap': race_data.total_laps}
-        
-        try:
+            
             temp_evolution = tyre_model.predict_temperature_evolution(history, future_laps=10)
-        except Exception as e:
-            logger.warning(f"Temperature evolution failed: {e}")
-            temp_evolution = {'temperature_trend': 'stable'}
-        
-        try:
+            
             compound_recommendation = tyre_model.calculate_optimal_compound(
                 race_data.track_conditions.dict(),
                 pit_window.get('laps_until_optimal', 15),
@@ -276,112 +245,79 @@ async def analyze_strategy_comprehensive(race_data: RaceData):
                 race_data.total_laps
             )
         except Exception as e:
-            logger.warning(f"Compound recommendation failed: {e}")
+            logger.warning(f"Tyre analysis failed: {e}")
+            tyre_life = {'predicted_failure_lap': race_data.total_laps}
+            temp_evolution = {'temperature_trend': 'stable'}
             compound_recommendation = {'recommended_compound': 'Medium', 'confidence': 50}
         
-        # 3. PERFORMANCE ANALYSIS with better error handling
+        # 3. PERFORMANCE ANALYSIS
         try:
-            # FIX: Pass reference lap times if available
-            reference_times = [[30.0, 32.0, 28.9]]  # Default reference
             sector_performance = weak_point_detector.analyze_sector_performance(
                 history,
-                reference_times
+                [[30.1, 32.5, 28.9]]
             )
-        except Exception as e:
-            logger.warning(f"Sector performance analysis failed: {e}")
-            sector_performance = {'weak_sectors': [], 'recommendations': []}
-        
-        try:
+            
             lap_consistency = weak_point_detector.analyze_lap_time_consistency(history)
-        except Exception as e:
-            logger.warning(f"Lap consistency analysis failed: {e}")
-            lap_consistency = {'consistency_rating': 'good'}
-        
-        try:
+            
             improvement_priorities = weak_point_detector.identify_improvement_priorities(
                 sector_performance,
                 lap_consistency,
                 race_data.our_car.tyre_wear
             )
         except Exception as e:
-            logger.warning(f"Improvement priorities failed: {e}")
+            logger.warning(f"Performance analysis failed: {e}")
+            sector_performance = {'weak_sectors': []}
+            lap_consistency = {'consistency_rating': 'good'}
             improvement_priorities = []
         
-        # 4. OVERTAKING OPPORTUNITIES (safe)
-        try:
-            overtaking_opps = strategy_analyzer.find_overtaking_opportunities(
-                race_data.our_car,
-                race_data.competitors,
-                race_data.drs_zones
-            )
-        except Exception as e:
-            logger.warning(f"Overtaking analysis failed: {e}")
-            overtaking_opps = []
+        # 4. OVERTAKING OPPORTUNITIES
+        overtaking_opps = strategy_analyzer.find_overtaking_opportunities(
+            race_data.our_car,
+            race_data.competitors,
+            race_data.drs_zones
+        )
         
         # 5. PACE STRATEGY
-        try:
-            pace_strategy = quantum_engine.optimize_pace_strategy(
-                race_data.our_car.position,
-                race_data.our_car.fuel_load,
-                race_data.our_car.tyre_wear,
-                race_data.total_laps - race_data.our_car.current_lap
-            )
-        except Exception as e:
-            logger.warning(f"Pace optimization failed: {e}")
-            pace_strategy = {
-                'pace_mode': 'BALANCED',
-                'lap_time_target': 'Current pace',
-                'recommendation': 'Maintain current pace'
-            }
+        pace_strategy = quantum_engine.optimize_pace_strategy(
+            race_data.our_car.position,
+            race_data.our_car.fuel_load,
+            race_data.our_car.tyre_wear,
+            race_data.total_laps - race_data.our_car.current_lap
+        )
         
-        # 6. SECTOR OPTIMIZATION (safe)
-        try:
-            sector_optimization = strategy_analyzer.optimize_sectors(
-                race_data.our_car.slow_sectors,
-                [c.slow_zones for c in race_data.competitors],
-                race_data.our_car.sector_times[:3]
-            )
-        except Exception as e:
-            logger.warning(f"Sector optimization failed: {e}")
-            sector_optimization = {'sectors': [], 'total_potential_gain': 0}
+        # 6. SECTOR OPTIMIZATION
+        sector_optimization = strategy_analyzer.optimize_sectors(
+            race_data.our_car.slow_sectors,
+            [c.slow_zones for c in race_data.competitors],
+            race_data.our_car.sector_times[:3]
+        )
         
-        # 7. RISK ASSESSMENT (safe)
-        try:
-            risk_assessment = strategy_analyzer.assess_risk(
-                pit_recommendation,
-                race_data.track_conditions,
-                race_data.our_car.position
-            )
-        except Exception as e:
-            logger.warning(f"Risk assessment failed: {e}")
-            risk_assessment = "MEDIUM RISK: Standard racing conditions"
+        # 7. RISK ASSESSMENT
+        risk_assessment = strategy_analyzer.assess_risk(
+            pit_recommendation,
+            race_data.track_conditions,
+            race_data.our_car.position
+        )
         
-        # 8. QUANTUM ADVANCED (safe)
-        try:
-            uncertainties = {
-                'weather_volatility': race_data.track_conditions.rainfall / 100,
-                'tyre_degradation_variance': 0.4,
-                'competitor_unpredictability': 0.3,
-                'mechanical_risk': 0.1
-            }
-            quantum_risk = quantum_advanced.quantum_risk_assessment(
-                pit_recommendation,
-                uncertainties
-            )
-        except Exception as e:
-            logger.warning(f"Quantum risk assessment failed: {e}")
-            quantum_risk = {'risk_score': 50, 'risk_level': 'MEDIUM'}
+        # 8. QUANTUM ADVANCED FEATURES
+        uncertainties = {
+            'weather_volatility': race_data.track_conditions.rainfall / 100,
+            'tyre_degradation_variance': 0.4,
+            'competitor_unpredictability': 0.3,
+            'mechanical_risk': 0.1
+        }
         
-        # Calculate time gain (safe)
-        try:
-            time_gain = strategy_analyzer.calculate_expected_gain(
-                pit_recommendation,
-                pace_strategy,
-                sector_optimization
-            )
-        except Exception as e:
-            logger.warning(f"Time gain calculation failed: {e}")
-            time_gain = 0.0
+        quantum_risk = quantum_advanced.quantum_risk_assessment(
+            pit_recommendation,
+            uncertainties
+        )
+        
+        # Calculate overall time gain
+        time_gain = strategy_analyzer.calculate_expected_gain(
+            pit_recommendation,
+            pace_strategy,
+            sector_optimization
+        )
         
         # Calculate response time
         response_time = (datetime.now() - start_time).total_seconds()
@@ -390,7 +326,7 @@ async def analyze_strategy_comprehensive(race_data: RaceData):
         
         return {
             'timestamp': datetime.now().isoformat(),
-            'analysis_version': '2.1_comprehensive_fixed',
+            'analysis_version': '2.1_comprehensive',
             
             # Core recommendations
             'pit_stop_recommendation': pit_recommendation,
@@ -429,9 +365,7 @@ async def analyze_strategy_comprehensive(race_data: RaceData):
         
     except Exception as e:
         logger.error(f"Strategy analysis failed: {str(e)}")
-        import traceback
-        logger.error(traceback.format_exc())
-        raise HTTPException(status_code=500, detail=f"Analysis failed: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Analysis failed: '{str(e)}'")
 
 @app.post("/api/strategy/pit-timing")
 async def analyze_pit_timing_advanced(race_data: RaceData):
